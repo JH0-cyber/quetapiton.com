@@ -13,11 +13,27 @@
       margin: 0;
       padding: 0;
     }
+
+    button {
+      padding: 12px 24px;
+      margin: 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
     #OAM {
-      
-      padding: 10%;
-      background: white;
+      background-color: white;
       color: black;
+    }
+
+    #OAM:hover {
+      background-color: #ddd;
+    }
+
+    button:hover:not(#OAM) {
+      background-color: #0055aa;
     }
   </style>
 </head>
@@ -25,14 +41,15 @@
   <h1>Gamipt</h1>
   <button onclick="quetapiweb()">Quetapiton Web</button>
   <button id="OAM" onclick="OAM()">OAM Jogar</button>
+
   <script>
-function quetapiweb() {
-  window.location.href = "https://sites.google.com/view/quetapitonstudio-br-/in%
-ADcio"
-}
-function OAM(){
-   window.location.href = "oam.html"
-}
-</script>
+    function quetapiweb() {
+      window.location.href = "https://sites.google.com/view/quetapitonstudio-br-/inicio";
+    }
+
+    function OAM() {
+      window.location.href = "oam.html";
+    }
+  </script>
 </body>
 </html>
