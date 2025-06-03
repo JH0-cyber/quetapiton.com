@@ -3,5 +3,5 @@ function quetapiweb() {
 ADcio"
 }
 function OAM(){
-   window.location.href = "https://gamipt.onrender.com/oam.html"
+   window.location.href = "oam.html"
 }
