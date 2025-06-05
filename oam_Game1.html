@@ -41,5 +41,75 @@ io.on('connection', socket => {
 
 http.listen(3000, () => console.log("Servidor rodando em http://localhost:3000"));
 </script>
+<script>
+const socket = io(); // Conecta com o servidor
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// Jogador local
+const local = new THREE.Mesh(
+  new THREE.BoxGeometry(),
+  new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+);
+scene.add(local);
+
+// Outros jogadores
+const others = {};
+
+socket.on("initPlayers", (data) => {
+  for (let id in data) {
+    if (id !== socket.id) addPlayer(id, data[id]);
+  }
+});
+
+socket.on("newPlayer", (data) => {
+  addPlayer(data.id, data);
+});
+
+socket.on("updatePlayer", ({ id, pos }) => {
+  if (others[id]) others[id].position.set(pos.x, pos.y, pos.z);
+});
+
+socket.on("removePlayer", (id) => {
+  if (others[id]) {
+    scene.remove(others[id]);
+    delete others[id];
+  }
+});
+
+function addPlayer(id, pos) {
+  const player = new THREE.Mesh(
+    new THREE.BoxGeometry(),
+    new THREE.MeshBasicMaterial({ color: 0xff0000 })
+  );
+  player.position.set(pos.x, pos.y, pos.z);
+  scene.add(player);
+  others[id] = player;
+}
+
+// Movimento simples (vai pra frente e volta)
+let t = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  t += 0.05;
+  local.position.x = Math.sin(t) * 2;
+
+  // Enviar posição para o servidor
+  socket.emit("move", {
+    x: local.position.x,
+    y: local.position.y,
+    z: local.position.z
+  });
+
+  camera.position.z = 5;
+  renderer.render(scene, camera);
+}
+animate();
+</script>
 </body>
 </html>
