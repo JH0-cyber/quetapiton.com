@@ -9,6 +9,37 @@
   <!-- Socket.IO e Three.js via CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-  <script src="client.js"></script>
+  <script>
+const express = require('express');
+const app = express();
+const http = require('http').createServer(app);
+const io = require('socket.io')(http, {
+  cors: { origin: "*" }
+});
+
+app.use(express.static('.'));
+
+let players = {};
+
+io.on('connection', socket => {
+  console.log("Novo jogador:", socket.id);
+  players[socket.id] = { x: 0, y: 0, z: 0 };
+  socket.emit("initPlayers", players);
+  socket.broadcast.emit("newPlayer", { id: socket.id, ...players[socket.id] });
+
+  socket.on("move", pos => {
+    players[socket.id] = pos;
+    socket.broadcast.emit("updatePlayer", { id: socket.id, pos });
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Saiu:", socket.id);
+    delete players[socket.id];
+    io.emit("removePlayer", socket.id);
+  });
+});
+
+http.listen(3000, () => console.log("Servidor rodando em http://localhost:3000"));
+</script>
 </body>
 </html>
