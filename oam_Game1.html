@@ -42,7 +42,7 @@ io.on('connection', socket => {
 http.listen(3000, () => console.log("Servidor rodando em http://localhost:3000"));
 </script>
 <script>
-const socket = io(); // Conecta com o servidor
+const socket = io("https://gamipt.onrender.com"); // Conecta com o servidor
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
