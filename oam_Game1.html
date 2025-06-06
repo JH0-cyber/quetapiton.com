@@ -1,115 +1,98 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title></title>
-  <style>body { margin: 0; overflow: hidden; }</style>
+  <title>Jogo 3D Mobile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <style>
+    html, body {
+      margin: 0;
+      overflow: hidden;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
 </head>
 <body>
-  <!-- Socket.IO e Three.js via CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-  <script>
-const express = require('express');
-const app = express();
-const http = require('http').createServer(app);
-const io = require('socket.io')(http, {
-  cors: { origin: "*" }
-});
 
-app.use(express.static('.'));
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 
-let players = {};
-
-io.on('connection', socket => {
-  console.log("Novo jogador:", socket.id);
-  players[socket.id] = { x: 0, y: 0, z: 0 };
-  socket.emit("initPlayers", players);
-  socket.broadcast.emit("newPlayer", { id: socket.id, ...players[socket.id] });
-
-  socket.on("move", pos => {
-    players[socket.id] = pos;
-    socket.broadcast.emit("updatePlayer", { id: socket.id, pos });
-  });
-
-  socket.on("disconnect", () => {
-    console.log("Saiu:", socket.id);
-    delete players[socket.id];
-    io.emit("removePlayer", socket.id);
-  });
-});
-
-http.listen(3000, () => console.log("Servidor rodando em http://localhost:3000"));
-</script>
 <script>
-const socket = io("https://gamipt.onrender.com"); // Conecta com o servidor
+  // CENA, CÂMERA E RENDERER
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer({antialias: true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
 
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+  // ILUMINAÇÃO
+  const light = new THREE.DirectionalLight(0xffffff, 1);
+  light.position.set(1, 1, 1).normalize();
+  scene.add(light);
 
-// Jogador local
-const local = new THREE.Mesh(
-  new THREE.BoxGeometry(),
-  new THREE.MeshBasicMaterial({ color: 0x00ff00 })
-);
-scene.add(local);
+  // TEXTURAS (IMAGENS EMBUTIDAS BASE64)
+  const grassTexture = new THREE.TextureLoader().load('https://i.imgur.com/5WjY7N5.jpg'); // grama
+  grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
+  grassTexture.repeat.set(10, 10);
 
-// Outros jogadores
-const others = {};
+  const cubeTexture = new THREE.TextureLoader().load('https://i.imgur.com/U7HMG0W.png'); // textura do cubo
 
-socket.on("initPlayers", (data) => {
-  for (let id in data) {
-    if (id !== socket.id) addPlayer(id, data[id]);
-  }
-});
+  // CHÃO
+  const floorGeometry = new THREE.PlaneGeometry(100, 100);
+  const floorMaterial = new THREE.MeshLambertMaterial({ map: grassTexture });
+  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+  floor.rotation.x = -Math.PI / 2;
+  scene.add(floor);
 
-socket.on("newPlayer", (data) => {
-  addPlayer(data.id, data);
-});
+  // CUBO
+  const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+  const cubeMaterial = new THREE.MeshLambertMaterial({ map: cubeTexture });
+  const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+  cube.position.y = 0.5;
+  scene.add(cube);
 
-socket.on("updatePlayer", ({ id, pos }) => {
-  if (others[id]) others[id].position.set(pos.x, pos.y, pos.z);
-});
+  camera.position.set(0, 5, 5);
+  camera.lookAt(cube.position);
 
-socket.on("removePlayer", (id) => {
-  if (others[id]) {
-    scene.remove(others[id]);
-    delete others[id];
-  }
-});
+  // TOUCH CONTROLES
+  let moveLeft = false;
+  let moveRight = false;
 
-function addPlayer(id, pos) {
-  const player = new THREE.Mesh(
-    new THREE.BoxGeometry(),
-    new THREE.MeshBasicMaterial({ color: 0xff0000 })
-  );
-  player.position.set(pos.x, pos.y, pos.z);
-  scene.add(player);
-  others[id] = player;
-}
-
-// Movimento simples (vai pra frente e volta)
-let t = 0;
-
-function animate() {
-  requestAnimationFrame(animate);
-  t += 0.05;
-  local.position.x = Math.sin(t) * 2;
-
-  // Enviar posição para o servidor
-  socket.emit("move", {
-    x: local.position.x,
-    y: local.position.y,
-    z: local.position.z
+  window.addEventListener('touchstart', (e) => {
+    const x = e.touches[0].clientX;
+    if (x < window.innerWidth / 2) moveLeft = true;
+    else moveRight = true;
   });
 
-  camera.position.z = 5;
-  renderer.render(scene, camera);
-}
-animate();
+  window.addEventListener('touchend', () => {
+    moveLeft = false;
+    moveRight = false;
+  });
+
+  // ANIMAÇÃO
+  function animate() {
+    requestAnimationFrame(animate);
+
+    if (moveLeft) cube.position.x -= 0.05;
+    if (moveRight) cube.position.x += 0.05;
+
+    camera.position.x = cube.position.x;
+    camera.lookAt(cube.position);
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+
+  // AJUSTE EM RESIZE
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
 </script>
+
 </body>
 </html>
