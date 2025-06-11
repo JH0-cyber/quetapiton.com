@@ -49,6 +49,8 @@
 <body>
 
 <div id="login-screen">
+  <h2>Digite seu apelido</h2>
+  <input type="text" id="nicknameInput" placeholder="Seu nickname">
   <button onclick="login()">Entrar</button>
 </div>
 
@@ -67,7 +69,6 @@
   <button id="acaoBtn" onclick="acaoMinigame()">Atender</button>
   <button onclick="voltar()">Voltar</button>
 </div>
-
 <script>
   const loginScreen = document.getElementById("login-screen");
   const gameScreen = document.getElementById("game-screen");
@@ -78,6 +79,7 @@
   const minigameDesc = document.getElementById("minigame-desc");
   const minigameStatus = document.getElementById("minigame-status");
   const acaoBtn = document.getElementById("acaoBtn");
+  const nicknameInput = document.getElementById("nicknameInput");
 
   let currentUser = null;
   let gameTimer = null;
@@ -90,30 +92,38 @@
     minigameScreen.style.display = screen === "minigame" ? "flex" : "none";
   }
 
-  function loadUser(email) {
-    const data = localStorage.getItem("user_" + email);
-    return data ? JSON.parse(data) : null;
+  function loadUser(nickname) {
+    const data = localStorage.getItem("user_" + nickname);
+    return data ? JSON.parse(data) : { nickname: nickname, moedas: 0 };
   }
 
-  function saveUser(email, userData) {
-    localStorage.setItem("user_" + email, JSON.stringify(userData));
+  function saveUser(userData) {
+    localStorage.setItem("user_" + userData.nickname, JSON.stringify(userData));
   }
 
   function login() {
+    const nickname = nicknameInput.value.trim();
+    if (nickname === "") return;
+    currentUser = loadUser(nickname);
+    saveUser(currentUser); // Garante que o usuário seja salvo
+    userEmailEl.textContent = currentUser.nickname;
+    moedasEl.textContent = currentUser.moedas;
     show("game");
   }
 
   function logout() {
-    show("game");
+    currentUser = null;
+    nicknameInput.value = "";
+    show("login");
   }
 
   function abrirMinigame(tipo) {
     pontos = 0;
     tempoRestante = 100;
     minigameScreen.dataset.tipo = tipo;
-    minigameTitle.textContent = tipo === "limonada" ? "🍋 Barraca de Limonada" : "🛒 Mercado ";
+    minigameTitle.textContent = tipo === "limonada" ? "🍋 Barraca de Limonada" : "🛒 Mercado";
     minigameDesc.textContent = tipo === "limonada"
-      ? "Atenda os clientes o mais rápido possível! Tempo: 100 segundos por minuto!"
+      ? "Atenda os clientes o mais rápido possível! Tempo: 100 segundos!"
       : "Organize os itens nas prateleiras super rápido!";
     atualizarStatus();
     show("minigame");
@@ -123,7 +133,7 @@
       tempoRestante--;
       atualizarStatus();
       if (tempoRestante <= 0) finalizarMinigame();
-    }, 500); // 0.5s para parecer rápido e divertido
+    }, 500); // Meio segundo
   }
 
   function acaoMinigame() {
@@ -139,9 +149,8 @@
     clearInterval(gameTimer);
     let moedasGanhas = pontos;
     currentUser.moedas += moedasGanhas;
-    saveUser(currentUser.email, currentUser);
+    saveUser(currentUser);
     moedasEl.textContent = currentUser.moedas;
-    alert(`Fim do jogo! Você ganhou ${moedasGanhas} moedas!`);
     show("game");
   }
 
@@ -152,6 +161,5 @@
 
   show("login");
 </script>
-
 </body>
 </html>
