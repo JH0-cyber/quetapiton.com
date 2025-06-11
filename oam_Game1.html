@@ -2,287 +2,155 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Jogo 3D Aprimorado</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>MiniJogo Divertido</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    html, body {
+    body {
       margin: 0;
-      overflow: hidden;
-      touch-action: none;
       font-family: sans-serif;
-    }
-    canvas {
-      display: block;
-    }
-    #mobile-controls {
-      position: absolute;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
+      background: #111;
+      color: #fff;
       display: flex;
-      gap: 30px;
-      z-index: 10;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      padding: 20px;
     }
-    .control-button {
-      width: 60px;
-      height: 60px;
-      font-size: 30px;
-      background: rgba(0,0,0,0.5);
-      color: white;
+    #login-screen, #game-screen, #minigame-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      max-width: 400px;
+      width: 100%;
+    }
+    input, button {
+      padding: 10px;
+      font-size: 16px;
+      width: 100%;
       border: none;
-      border-radius: 10px;
-      user-select: none;
+      border-radius: 5px;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
       cursor: pointer;
     }
-    #game-info {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      color: white;
-      font-size: 20px;
-      background: rgba(0,0,0,0.5);
-      padding: 10px;
-      border-radius: 5px;
-      z-index: 10;
+    h1, h2 {
+      margin: 10px 0;
     }
-    #game-over-screen {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.7);
-        color: white;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        font-size: 30px;
-        z-index: 100;
-        display: none; /* Escondido por padrão */
-    }
-    #restart-button {
-        padding: 15px 30px;
-        font-size: 24px;
-        background-color: #4CAF50;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        margin-top: 20px;
+    #minigame-status {
+      font-size: 14px;
+      color: #aaa;
     }
   </style>
 </head>
 <body>
 
-<div id="mobile-controls" style="display: none;">
-  <button class="control-button" id="left-btn">←</button>
-  <button class="control-button" id="right-btn">→</button>
+<div id="login-screen">
+  <button onclick="login()">Entrar</button>
 </div>
 
-<div id="game-info">
-    Pontos: <span id="score">0</span>
+<div id="game-screen">
+  <h2>Bem-vindo, <span id="user-email"></span></h2>
+  <p>Moedas: <span id="moedas">0</span></p>
+  <button onclick="abrirMinigame('limonada')">🍋 Jogo da Limonada</button>
+  <button onclick="abrirMinigame('mercado')">🛒 Jogo do Mercado</button>
+  <button onclick="logout()">Sair</button>
 </div>
 
-<div id="game-over-screen">
-    <h1>FIM DE JOGO!</h1>
-    <p>Sua pontuação: <span id="final-score">0</span></p>
-    <button id="restart-button">Jogar Novamente</button>
+<div id="minigame-screen">
+  <h2 id="minigame-title"></h2>
+  <p id="minigame-desc"></p>
+  <p id="minigame-status"></p>
+  <button id="acaoBtn" onclick="acaoMinigame()">Atender</button>
+  <button onclick="voltar()">Voltar</button>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script>
-  // === CENA, CÂMERA E RENDERER ===
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
+  const loginScreen = document.getElementById("login-screen");
+  const gameScreen = document.getElementById("game-screen");
+  const minigameScreen = document.getElementById("minigame-screen");
+  const userEmailEl = document.getElementById("user-email");
+  const moedasEl = document.getElementById("moedas");
+  const minigameTitle = document.getElementById("minigame-title");
+  const minigameDesc = document.getElementById("minigame-desc");
+  const minigameStatus = document.getElementById("minigame-status");
+  const acaoBtn = document.getElementById("acaoBtn");
 
-  // === ILUMINAÇÃO ===
-  const ambientLight = new THREE.AmbientLight(0x404040); // Luz ambiente suave
-  scene.add(ambientLight);
+  let currentUser = null;
+  let gameTimer = null;
+  let tempoRestante = 100;
+  let pontos = 0;
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-  directionalLight.position.set(1, 5, 5).normalize();
-  directionalLight.castShadow = true; // Habilita sombras
-  scene.add(directionalLight);
-
-  // Configurações da sombra
-  directionalLight.shadow.mapSize.width = 1024;
-  directionalLight.shadow.mapSize.height = 1024;
-  directionalLight.shadow.camera.near = 0.5;
-  directionalLight.shadow.camera.far = 50;
-  directionalLight.shadow.camera.left = -10;
-  directionalLight.shadow.camera.right = 10;
-  directionalLight.shadow.camera.top = 10;
-  directionalLight.shadow.camera.bottom = -10;
-
-  renderer.shadowMap.enabled = true; // Habilita o mapa de sombras no renderer
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Tipo de sombra (mais suave)
-
-  // === TEXTURAS ===
-  const grassTexture = new THREE.TextureLoader().load('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBxMTEhUTEhMVFRUXGRoaFxgYGBsfGhoaHxgdGhsfGiAbICgiIB8lGxoaITEhJSkrLi4uGx8zODMtNygtLisBCgoKDg0OGxAQGy0mICUvLS0tLS81LS81Ly0tLS0tLS0tLS01LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS8tLS0tLf/AABEIALcBFAMBIgACEQEDEQH/xAAaAAACAwEBAAAAAAAAAAAAAAADBAACBQEG/wQAORAAAQMCBQMCBAUDBAIDAQAAAQIRIQMxAAQSQVEiYXGBkQUTMqFCscHR8BRS4SNicvEVgkOSojP/xAAYAQEBAQEBAAAAAAAAAAAAAAABAgADBf/EIRAAMAAgMBAQADAQEAAAAAAAABEQIhEjFBUWEicYGh8P/wAADAQACEQMRAD8Azs1kalM6ioFwXITcuSzDnjnviUTUkhGpQ2K3SHGzAsRMKMPe+D5mor5Sk1QhiGV1On0dm/feMM/Dq9JCB8oJAXLjckAuebdxGPFuj3emZeR+bUXeU8HpEue5cMXkPGDfFsuroQdSiXYAA9yXJLtMNw+2HK3xLSrVVAJIYMCfymY2/wAt5Wu2oKSQQXBH9tgW2N4/gG3bBSUh5sUyCZSkWAdIZpaXhmMl9ztjWyKUp1D5iAWBUSX3ncRzJ2thLP8Ay/mdKixPVJPUNi6iDteQGG+AJouSKaQLB2IfiAH3tG+KaoJ/DXq0Ej6TTVUuFFnYljpSHe1u+C0fg6Esaq+5CVXVH1MkfZrnGR8LyqqaiULVrMrK/p/ck9rDzhtNZdV6chX4lWCQ+x3PDS+Ja+M1+o0f/G0yrocBv7yB4f1f0HGMXMA01aDU6jISnUEr3fUoHeGD+MaeVy5phSfm6wTL3Dj/ABDviIy9MgqW6zJciw2hr+OcCcKabM2ktSICdQP4VaonZwXD7c7zglZHy0pJSATJk38AEA25sPOL0kJWSQAgkuwSGISn8UE92htsDqDrUhaiq4BUosm5/CzwGhgQ42LV6AI1ATAJW8vYGx1UX5j07Y0svWIBpuI2AMPI6vO33wtRompUSpgKaYgBlNAeHG1jscHzeV6taagSB/Czd7gvviW10UhlGbYOKZUSJIIYjaSX5wrVzx6gELCu4Ol/JjgwW3wGihtTVnANwxku+op8tcWvwTM1dCXKyB5H2BfV98bQRsgrAKIWgBKjEySP7j5fu+EwEGo0pS7EFQPMsXZy0xE4FktSipY1KUXckEANwQONsH+H0NSuQ1wJLuTZwxcGI8viuqEbgdGbSkoCaaVA2IBMj/azP4/wC/MtnKlJJKiQSC+n/yQ/Y3jAauopq1pYgM/S/3Nn3ZtG74FWqS0/V1B5I+w7nC9TM2kt0VfF01KSoqIJSxJD+l2Y+m2GqfU1F3H+xI+uFcyC5SQC2jU/0Bf2h/5888/wDqU6Vd3D9+J/zxhPIGpG+IrmWpQSlh+El+33xNfMFJKiQoQ0B7gD1H/AC/pgmXfV+Jv6/a/9sY0s80Sj5iiFqYhKQGBbSx3Ym3b0GKnRcvB3K5UgglRUAxIYg2P5/T2xSpmwkq+moqJJDtL8e0B2wSvk0qS0pDkXUWA22Z45b/XFcqnSDpI+15HjS/a/8AfF01S0hK7NfMUKVpJ0k/4w159N+cFU5oEpGkjmYd3bYx64S/zGgE9IBA/e3H7YuVzEAAeW2oQ51D14F3Jd+cZy3oXwIpxF0lC9yW/rYOH22OGxVBAIDk7kPuf0+mFcooq1eoa+k26Q4Y/hDdvfGf834dUpSSvUoJIZgC4D7H7v4Dk1R70ZtP0/K0nU1B8BwB/xYxUaqoO4+2+x7cQ8tO+J/wCjpJID6Q4i+z/m/rhXN5V9a6Uq0kAlWlQ+n6R3j3x0TWhdJ+lE0v1KSSkFhI+l/z98a2Wy/zEqBJI4j2G7uY4GBZTKhKSpwW6iw/EP+Hl7d8NZVdDk2dJt7fpeN/wBYxW0FqJ/zC0pTUkC42+2r0jD2wSlUAlJUSz7iLwP2/LClbQo6tIJ7k7+23j/wBYGsqUkECoFkhiH2A4P5WJ/bFSb0Uo0+S74uT5Qkgk/SDuN4m3D4qM0QzPZ/S24e/a/e+NPLVdJJDEeD/ALvjC0zXg69QY+YI7b6hM3l/Jxa03T+h20h2jUQQo6iCQ46pEwA4Y8bE74Kk0r6QSWaBf2/L74qMwpJ6SpQZgW1EkP8Ag73g+Ew4qU0j+43k+kXG4A7jHPoQ/8ABWqYgq0m/wBTE/4H+YxRRSyDqcB50kH06u8e/g0gV1E6E/UAWcknZt2B8G/fBKtQJb8RAjR+XmQ/oMAtk4NqR1g/7mE/l8Wz98N08x9IJYyN7e+4+uGczlQ00/9gLkn6YvE+e/fClM1qUqSg9I0yQJk+k8vPpiXJ+DRQ6iK1Q1MQSXUoAbm7QGf8AQxSm8L1bAEkn/AHATz3d2+2GUpYJUoDqJJhI2Lh/154FmKkhIBWkQzEvA8y/H7e2H+h/wXqLAAU4Lg/h3L7v2/XFq6uJkKSPd7fS5P7YZoV1LUSVKDkjYd2/fHcyoXqSkl1bBiGfub/d/c41k6aV6LpSpW+mU/eX7Pz+fXNlqWz+U6S4h5J2iI2h9sRGYUUkKUoO9z+kefc+mFU1+aJdYd/b1b3i0Y0tJkQy1ZJqKSokF0xG38Y/fEwSmm/Eon2jF+f+Jia/wDIv+fA//2Q==');
-  grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
-  grassTexture.repeat.set(10, 10);
-
-  const cubeTexture = new THREE.TextureLoader().load('https://img.freepik.com/fotos-gratis/um-pouco-apagado-padrao-de-estuque-palido-limpa_1194-7205.jpg?semt=ais_hybrid&w=740');
-  const obstacleTexture = new THREE.TextureLoader().load('https://img.freepik.com/fotos-gratis/textura-de-parede-de-tijolo-vermelho_1194-5735.jpg?semt=ais_hybrid&w=740');
-
-  // === CHÃO ===
-  const floorGeometry = new THREE.PlaneGeometry(100, 100);
-  const floorMaterial = new THREE.MeshLambertMaterial({ map: grassTexture });
-  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-  floor.rotation.x = -Math.PI / 2;
-  floor.receiveShadow = true; // Chão recebe sombras
-  scene.add(floor);
-
-  // === CUBO DO JOGADOR ===
-  const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-  const cubeMaterial = new THREE.MeshLambertMaterial({ map: cubeTexture });
-  const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-  cube.position.y = 0.5;
-  cube.castShadow = true; // Cubo projeta sombras
-  scene.add(cube);
-
-  // === OBSTÁCULOS ===
-  const obstacles = [];
-  const obstacleMaterial = new THREE.MeshLambertMaterial({ map: obstacleTexture });
-  const obstacleGeometry = new THREE.BoxGeometry(1, 2, 1); // Obstáculos mais altos
-
-  function createObstacle() {
-    const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
-    obstacle.position.x = (Math.random() - 0.5) * 8; // Posição X aleatória
-    obstacle.position.y = 1; // Altura do obstáculo
-    obstacle.position.z = -Math.random() * 50 - 10; // Posição Z mais distante e aleatória
-    obstacle.castShadow = true;
-    obstacle.receiveShadow = true;
-    scene.add(obstacle);
-    obstacles.push(obstacle);
+  function show(screen) {
+    loginScreen.style.display = screen === "login" ? "flex" : "none";
+    gameScreen.style.display = screen === "game" ? "flex" : "none";
+    minigameScreen.style.display = screen === "minigame" ? "flex" : "none";
   }
 
-  // Câmera segue o cubo com um pequeno atraso
-  camera.position.set(0, 5, 5);
-  camera.lookAt(cube.position);
-
-  // === MOVIMENTO E ESTADO DO JOGO ===
-  let moveLeft = false;
-  let moveRight = false;
-  let score = 0;
-  let gameOver = false;
-  let gameSpeed = 0.05; // Velocidade inicial do jogo
-
-  const scoreDisplay = document.getElementById('score');
-  const finalScoreDisplay = document.getElementById('final-score');
-  const gameOverScreen = document.getElementById('game-over-screen');
-  const restartButton = document.getElementById('restart-button');
-
-  function resetGame() {
-    score = 0;
-    scoreDisplay.textContent = score;
-    gameOver = false;
-    gameSpeed = 0.05;
-    cube.position.set(0, 0.5, 0); // Reseta a posição do cubo
-    obstacles.forEach(obstacle => scene.remove(obstacle)); // Remove obstáculos antigos
-    obstacles.length = 0; // Limpa o array de obstáculos
-    gameOverScreen.style.display = 'none';
-    createInitialObstacles();
+  function loadUser(email) {
+    const data = localStorage.getItem("user_" + email);
+    return data ? JSON.parse(data) : null;
   }
 
-  function createInitialObstacles() {
-    for (let i = 0; i < 10; i++) {
-      createObstacle();
-    }
+  function saveUser(email, userData) {
+    localStorage.setItem("user_" + email, JSON.stringify(userData));
   }
 
-  function animate() {
-    if (gameOver) {
-      return; // Para a animação se o jogo acabou
-    }
-
-    requestAnimationFrame(animate);
-
-    // Movimento do cubo do jogador
-    if (moveLeft && cube.position.x > -4.5) cube.position.x -= 0.1;
-    if (moveRight && cube.position.x < 4.5) cube.position.x += 0.1;
-
-    // Movimento do chão e da câmera
-    floor.position.z += gameSpeed;
-    if (floor.position.z > 5) floor.position.z = 0; // Reseta o chão para um loop infinito
-
-    // Movimento dos obstáculos
-    obstacles.forEach((obstacle, index) => {
-      obstacle.position.z += gameSpeed;
-
-      // Colisão
-      const cubeBox = new THREE.Box3().setFromObject(cube);
-      const obstacleBox = new THREE.Box3().setFromObject(obstacle);
-
-      if (cubeBox.intersectsBox(obstacleBox)) {
-        gameOver = true;
-        finalScoreDisplay.textContent = score;
-        gameOverScreen.style.display = 'flex';
-      }
-
-      // Remove obstáculos que passaram e cria novos
-      if (obstacle.position.z > camera.position.z + 5) {
-        scene.remove(obstacle);
-        obstacles.splice(index, 1);
-        createObstacle();
-        score += 10; // Aumenta a pontuação
-        scoreDisplay.textContent = score;
-        gameSpeed += 0.001; // Aumenta a velocidade gradualmente
-      }
-    });
-
-    // Câmera segue o cubo com um pequeno atraso
-    camera.position.lerp(new THREE.Vector3(cube.position.x, 5, cube.position.z + 5), 0.1);
-    camera.lookAt(cube.position);
-
-    renderer.render(scene, camera);
+  function login() {
+    show("game");
   }
 
-  // Iniciar o jogo
-  resetGame();
-  animate();
-
-  // === RESIZE ===
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-
-  // === DETECTA DISPOSITIVO ===
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-  if (isMobile) {
-    // === CONTROLES MOBILE ===
-    document.getElementById('mobile-controls').style.display = 'flex';
-
-    const leftBtn = document.getElementById('left-btn');
-    const rightBtn = document.getElementById('right-btn');
-
-    leftBtn.addEventListener('touchstart', () => moveLeft = true);
-    leftBtn.addEventListener('touchend', () => moveLeft = false);
-
-    rightBtn.addEventListener('touchstart', () => moveRight = true);
-    rightBtn.addEventListener('touchend', () => moveRight = false);
-  } else {
-    // === CONTROLES PC (TECLADO) ===
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') moveLeft = true;
-      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') moveRight = true;
-    });
-    window.addEventListener('keyup', (e) => {
-      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') moveLeft = false;
-      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') moveRight = false;
-    });
+  function logout() {
+    show("game");
   }
 
-  // === EVENTO DO BOTÃO DE REINICIAR ===
-  restartButton.addEventListener('click', resetGame);
+  function abrirMinigame(tipo) {
+    pontos = 0;
+    tempoRestante = 100;
+    minigameScreen.dataset.tipo = tipo;
+    minigameTitle.textContent = tipo === "limonada" ? "🍋 Barraca de Limonada" : "🛒 Mercado ";
+    minigameDesc.textContent = tipo === "limonada"
+      ? "Atenda os clientes o mais rápido possível! Tempo: 100 segundos por minuto!"
+      : "Organize os itens nas prateleiras super rápido!";
+    atualizarStatus();
+    show("minigame");
 
+    clearInterval(gameTimer);
+    gameTimer = setInterval(() => {
+      tempoRestante--;
+      atualizarStatus();
+      if (tempoRestante <= 0) finalizarMinigame();
+    }, 500); // 0.5s para parecer rápido e divertido
+  }
+
+  function acaoMinigame() {
+    pontos++;
+    atualizarStatus();
+  }
+
+  function atualizarStatus() {
+    minigameStatus.textContent = `Tempo: ${tempoRestante}s | Pontos: ${pontos}`;
+  }
+
+  function finalizarMinigame() {
+    clearInterval(gameTimer);
+    let moedasGanhas = pontos;
+    currentUser.moedas += moedasGanhas;
+    saveUser(currentUser.email, currentUser);
+    moedasEl.textContent = currentUser.moedas;
+    alert(`Fim do jogo! Você ganhou ${moedasGanhas} moedas!`);
+    show("game");
+  }
+
+  function voltar() {
+    clearInterval(gameTimer);
+    show("game");
+  }
+
+  show("login");
 </script>
 
 </body>
