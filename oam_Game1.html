@@ -7,8 +7,8 @@
   <style>
     body {
       margin: 0;
-      font-family: sans-serif;
-      background: #111;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to bottom, #111, #222);
       color: #fff;
       display: flex;
       justify-content: center;
@@ -17,7 +17,7 @@
       flex-direction: column;
       padding: 20px;
     }
-    #login-screen, #game-screen, #minigame-screen {
+    #login-screen, #game-screen, #minigame-screen, #admin-panel {
       display: none;
       flex-direction: column;
       align-items: center;
@@ -26,11 +26,12 @@
       width: 100%;
     }
     input, button {
-      padding: 10px;
+      padding: 12px;
       font-size: 16px;
       width: 100%;
       border: none;
-      border-radius: 5px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px #000;
     }
     button {
       background-color: #4CAF50;
@@ -39,26 +40,42 @@
     }
     h1, h2 {
       margin: 10px 0;
+      text-shadow: 2px 2px #000;
     }
     #minigame-status {
       font-size: 14px;
-      color: #aaa;
+      color: #ccc;
+    }
+    .joystick {
+      display: flex;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .joystick button {
+      width: 80px;
+      height: 80px;
+      font-size: 20px;
+      border-radius: 50%;
+    }
+    #admin-panel button {
+      background: crimson;
     }
   </style>
 </head>
 <body>
 
 <div id="login-screen">
-  <h2>Digite seu apelido</h2>
+  <h2>Digite seu apelido(se não funcionar,coloque <q>user1</q></h2>
   <input type="text" id="nicknameInput" placeholder="Seu nickname">
   <button onclick="login()">Entrar</button>
 </div>
 
 <div id="game-screen">
   <h2>Bem-vindo, <span id="user-email"></span></h2>
-  <p>Moedas: <span id="moedas">0</span></p>
+  <p>💰 Moedas: <span id="moedas">0</span></p>
   <button onclick="abrirMinigame('limonada')">🍋 Jogo da Limonada</button>
   <button onclick="abrirMinigame('mercado')">🛒 Jogo do Mercado</button>
+  <button id="adminBtn" style="display:none" onclick="abrirPainelADM()">🔧 Painel ADM</button>
   <button onclick="logout()">Sair</button>
 </div>
 
@@ -66,30 +83,44 @@
   <h2 id="minigame-title"></h2>
   <p id="minigame-desc"></p>
   <p id="minigame-status"></p>
-  <button id="acaoBtn" onclick="acaoMinigame()">Atender</button>
-  <button onclick="voltar()">Voltar</button>
+  <div class="joystick">
+    <button onclick="acaoMinigame()">▶️</button>
+  </div>
+  <button onclick="voltar()">🔙 Voltar</button>
 </div>
+
+<div id="admin-panel">
+  <h2>🛠 Painel do Administrador</h2>
+  <button onclick="darMoedas()">💸 Dar 9999 moedas</button>
+  <button onclick="criarMinigame()">➕ Criar Minigame</button>
+  <button onclick="fecharPainelADM()">❌ Fechar Painel</button>
+</div>
+
 <script>
   const loginScreen = document.getElementById("login-screen");
   const gameScreen = document.getElementById("game-screen");
   const minigameScreen = document.getElementById("minigame-screen");
+  const adminPanel = document.getElementById("admin-panel");
+  const adminBtn = document.getElementById("adminBtn");
+
   const userEmailEl = document.getElementById("user-email");
   const moedasEl = document.getElementById("moedas");
   const minigameTitle = document.getElementById("minigame-title");
   const minigameDesc = document.getElementById("minigame-desc");
   const minigameStatus = document.getElementById("minigame-status");
-  const acaoBtn = document.getElementById("acaoBtn");
   const nicknameInput = document.getElementById("nicknameInput");
 
   let currentUser = null;
   let gameTimer = null;
   let tempoRestante = 100;
   let pontos = 0;
+  let isADM = false;
 
   function show(screen) {
     loginScreen.style.display = screen === "login" ? "flex" : "none";
     gameScreen.style.display = screen === "game" ? "flex" : "none";
     minigameScreen.style.display = screen === "minigame" ? "flex" : "none";
+    adminPanel.style.display = screen === "admin" ? "flex" : "none";
   }
 
   function loadUser(nickname) {
@@ -104,10 +135,18 @@
   function login() {
     const nickname = nicknameInput.value.trim();
     if (nickname === "") return;
+    if (nickname === "user1") {
+      show("game")
+    }
+
+    isADM = nickname.toLowerCase() === "eromadeite";
     currentUser = loadUser(nickname);
-    saveUser(currentUser); // Garante que o usuário seja salvo
+    saveUser(currentUser);
     userEmailEl.textContent = currentUser.nickname;
     moedasEl.textContent = currentUser.moedas;
+
+    adminBtn.style.display = isADM ? "inline-block" : "none";
+
     show("game");
   }
 
@@ -120,11 +159,10 @@
   function abrirMinigame(tipo) {
     pontos = 0;
     tempoRestante = 100;
-    minigameScreen.dataset.tipo = tipo;
-    minigameTitle.textContent = tipo === "limonada" ? "🍋 Barraca de Limonada" : "🛒 Mercado";
+    minigameTitle.textContent = tipo === "limonada" ? "🍋 Barraca de Limonada" : "🛒 Mercado Caótico";
     minigameDesc.textContent = tipo === "limonada"
-      ? "Atenda os clientes o mais rápido possível! Tempo: 100 segundos!"
-      : "Organize os itens nas prateleiras super rápido!";
+      ? "Atenda os clientes o mais rápido possível!"
+      : "Reponha os itens rapidamente antes que os clientes fiquem bravos!";
     atualizarStatus();
     show("minigame");
 
@@ -133,7 +171,7 @@
       tempoRestante--;
       atualizarStatus();
       if (tempoRestante <= 0) finalizarMinigame();
-    }, 500); // Meio segundo
+    }, 500);
   }
 
   function acaoMinigame() {
@@ -142,12 +180,12 @@
   }
 
   function atualizarStatus() {
-    minigameStatus.textContent = `Tempo: ${tempoRestante}s | Pontos: ${pontos}`;
+    minigameStatus.textContent = `⏱ Tempo: ${tempoRestante}s | ⭐ Pontos: ${pontos}`;
   }
 
   function finalizarMinigame() {
     clearInterval(gameTimer);
-    let moedasGanhas = pontos;
+    const moedasGanhas = pontos * 2;
     currentUser.moedas += moedasGanhas;
     saveUser(currentUser);
     moedasEl.textContent = currentUser.moedas;
@@ -157,6 +195,28 @@
   function voltar() {
     clearInterval(gameTimer);
     show("game");
+  }
+
+  function abrirPainelADM() {
+    show("admin");
+  }
+
+  function fecharPainelADM() {
+    show("game");
+  }
+
+  function darMoedas() {
+    currentUser.moedas += 9999;
+    saveUser(currentUser);
+    moedasEl.textContent = currentUser.moedas;
+    alert("Moedas adicionadas com sucesso!");
+  }
+
+  function criarMinigame() {
+    const nome = prompt("Nome do novo minigame:");
+    if (nome) {
+      alert(`Minigame "${nome}" criado! (Funcionalidade futura)`);
+    }
   }
 
   show("login");
