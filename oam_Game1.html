@@ -139,135 +139,87 @@
 </div>
 
 <script>
-  const loginScreen = document.getElementById("login-screen");
-  const gameScreen = document.getElementById("game-screen");
-  const minigameScreen = document.getElementById("minigame-screen");
-  const adminPanel = document.getElementById("admin-panel");
-  const adminBtn = document.getElementById("adminBtn");
+// Adições no topo
+let nivel = 1;
+let ultimaRecompensa = null;
+let ranking = JSON.parse(localStorage.getItem("ranking") || "[]");
+const conquistas = [];
 
-  const userEmailEl = document.getElementById("user-email");
-  const moedasEl = document.getElementById("moedas");
-  const minigameTitle = document.getElementById("minigame-title");
-  const minigameDesc = document.getElementById("minigame-desc");
-  const minigameStatus = document.getElementById("minigame-status");
-  const nicknameInput = document.getElementById("nicknameInput");
-
-  let currentUser = null;
-  let gameTimer = null;
-  let tempoRestante = 100;
-  let pontos = 0;
-  let isADM = false;
-
-  function show(screen) {
-    loginScreen.style.display = screen === "login" ? "flex" : "none";
-    gameScreen.style.display = screen === "game" ? "flex" : "none";
-    minigameScreen.style.display = screen === "minigame" ? "flex" : "none";
-    adminPanel.style.display = screen === "admin" ? "flex" : "none";
+// Recompensa diária
+function recompensaDiaria() {
+  const hoje = new Date().toDateString();
+  if (ultimaRecompensa === hoje) {
+    alert("Você já coletou a recompensa diária hoje!");
+    return;
   }
+  const recompensa = 100;
+  currentUser.moedas += recompensa;
+  ultimaRecompensa = hoje;
+  alert(`Você ganhou 💰 ${recompensa} moedas!`);
+  atualizarDados();
+}
 
-  function loadUser(nickname) {
-    const data = localStorage.getItem("user_" + nickname);
-    return data ? JSON.parse(data) : { nickname: nickname, moedas: 0 };
+// Atualiza moedas, nível e salva
+function atualizarDados() {
+  moedasEl.textContent = currentUser.moedas;
+  nivel = Math.floor(currentUser.moedas / 500) + 1;
+  salvarUserComExtras();
+}
+
+// Salva com ranking, conquistas e data
+function salvarUserComExtras() {
+  saveUser(currentUser);
+  localStorage.setItem("ultimaRecompensa", ultimaRecompensa);
+  localStorage.setItem("ranking", JSON.stringify(ranking));
+}
+
+// Atualiza ranking se pontuação for alta
+function atualizarRanking(pontos) {
+  ranking.push({ nick: currentUser.nickname, pontos });
+  ranking.sort((a, b) => b.pontos - a.pontos);
+  ranking = ranking.slice(0, 3); // top 3
+  localStorage.setItem("ranking", JSON.stringify(ranking));
+}
+
+// Checa e desbloqueia conquistas
+function checarConquistas() {
+  if (pontos >= 50 && !conquistas.includes("Vendedor Pro")) {
+    conquistas.push("Vendedor Pro");
+    alert("🏅 Conquista desbloqueada: Vendedor Pro!");
   }
+}
 
-  function saveUser(userData) {
-    localStorage.setItem("user_" + userData.nickname, JSON.stringify(userData));
-  }
+// Ao finalizar o minigame
+function finalizarMinigame() {
+  clearInterval(gameTimer);
+  const moedasGanhas = pontos * 2;
+  currentUser.moedas += moedasGanhas;
+  checarConquistas();
+  atualizarRanking(pontos);
+  atualizarDados();
+  show("game");
+}
 
-  function login() {
-    const nickname = nicknameInput.value.trim();
-    if (nickname === "") return;
-    isADM = nickname.toLowerCase() === "eromadeite";
-    currentUser = loadUser(nickname);
-    saveUser(currentUser);
-    userEmailEl.textContent = currentUser.nickname;
-    moedasEl.textContent = currentUser.moedas;
-    adminBtn.style.display = isADM ? "inline-block" : "none";
-    show("game");
-  }
+// Mostrar ranking
+function mostrarRanking() {
+  let texto = "🏆 Top Jogadores:\n";
+  ranking.forEach((p, i) => {
+    texto += `${i + 1}. ${p.nick} - ${p.pontos} pontos\n`;
+  });
+  alert(texto);
+}
 
-  function logout() {
-    currentUser = null;
-    nicknameInput.value = "";
-    show("login");
-  }
+// Botão extra no game-screen:
+const btnRecompensa = document.createElement("button");
+btnRecompensa.textContent = "🎁 Recompensa Diária";
+btnRecompensa.onclick = recompensaDiaria;
+gameScreen.appendChild(btnRecompensa);
 
-  function abrirMinigame(tipo) {
-    pontos = 0;
-    tempoRestante = 100;
-    minigameTitle.textContent = tipo === "limonada" ? "🍋 Barraca de Limonada" : "🛒 Mercado Caótico";
-    minigameDesc.textContent = tipo === "limonada"
-      ? "Atenda os clientes o mais rápido possível!"
-      : "Reponha os itens rapidamente antes que os clientes fiquem bravos!";
-    atualizarStatus();
-    show("minigame");
+const btnRanking = document.createElement("button");
+btnRanking.textContent = "📈 Ver Ranking";
+btnRanking.onclick = mostrarRanking;
+gameScreen.appendChild(btnRanking);
 
-    clearInterval(gameTimer);
-    gameTimer = setInterval(() => {
-      tempoRestante--;
-      atualizarStatus();
-      if (tempoRestante <= 0) finalizarMinigame();
-    }, 500);
-  }
-
-  function acaoMinigame() {
-    pontos++;
-    minigameStatus.classList.add("recompensa");
-    setTimeout(() => minigameStatus.classList.remove("recompensa"), 200);
-    atualizarStatus();
-    // new Audio('click.mp3').play(); // Som opcional
-  }
-
-  function atualizarStatus() {
-    minigameStatus.textContent = `⏱ Tempo: ${tempoRestante}s | ⭐ Pontos: ${pontos}`;
-  }
-
-  function finalizarMinigame() {
-    clearInterval(gameTimer);
-    const moedasGanhas = pontos * 2;
-    currentUser.moedas += moedasGanhas;
-    saveUser(currentUser);
-    moedasEl.textContent = currentUser.moedas;
-    alert(`🏆 Você ganhou ${moedasGanhas} moedas!`);
-    show("game");
-  }
-
-  function voltar() {
-    clearInterval(gameTimer);
-    show("game");
-  }
-
-  function abrirPainelADM() {
-    show("admin");
-  }
-
-  function fecharPainelADM() {
-    show("game");
-  }
-
-  function darMoedas() {
-    currentUser.moedas += 9999;
-    saveUser(currentUser);
-    moedasEl.textContent = currentUser.moedas;
-    alert("Moedas adicionadas com sucesso!");
-  }
-
-  function criarMinigame() {
-    const nome = prompt("Nome do novo minigame:");
-    if (nome) alert(`Minigame "${nome}" criado! (Funcionalidade futura)`);
-  }
-
-  function salvarDados() {
-    const dados = { nickname: currentUser.nickname, moedas: currentUser.moedas };
-    if (window.AndroidInterface) {
-      window.AndroidInterface.salvarJSON(JSON.stringify(dados));
-      alert("Dados salvos no arquivo!");
-    } else {
-      alert("Interface Android não encontrada.");
-    }
-  }
-
-  show("login");
 </script>
 </body>
 </html>
